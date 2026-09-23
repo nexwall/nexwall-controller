@@ -1,14 +1,13 @@
 FROM docker.io/alpine:3.22.5 AS build
-RUN apk add --no-cache  \
-      git \
+RUN apk add --no-cache \
       nodejs \
       npm
 WORKDIR /build
-# tracks nexwall/nexwall-ui main branch directly, not pinned to a tag
-ARG UI_VERSION=main
-# FIXME: when git 2.49 is available in alpine, use --revision="$UI_VERSION" instead of --branch="$UI_VERSION"
-RUN git clone --depth=1 --branch="$UI_VERSION" https://github.com/nexwall/nexwall-ui . \
-    && npm ci \
+# source is fetched by build.sh before this build starts (nexwall-ui is a
+# private repo; the fetch needs the host's git/SSH credentials, which are not
+# available inside this container's network namespace)
+COPY src/ .
+RUN npm ci \
     && sed -i 's/standalone/controller/g' .env.production \
     && npm run build
 

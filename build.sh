@@ -46,6 +46,20 @@ if [ "$missing" -ne 0 ]; then
     echo "Resolve the above issues and re-run the script." >&2
     exit 1
 fi
+
+# nexwall-ui is a private repository, so it can't be git-cloned anonymously from
+# inside the isolated buildah container network namespace (no credentials are
+# forwarded in there). Fetch it here instead, using the host's own git/SSH
+# access, and hand the container a plain source tree to COPY in.
+UI_REPO="${UI_REPO:-git@github.com:nexwall/nexwall-ui.git}"
+UI_VERSION="${UI_VERSION:-main}"
+UI_SRC_DIR="ui/src"
+
+echo "Fetching nexwall-ui (${UI_VERSION}) from ${UI_REPO} into ${UI_SRC_DIR}"
+rm -rf "$UI_SRC_DIR"
+git clone --quiet --depth=1 --branch="$UI_VERSION" "$UI_REPO" "$UI_SRC_DIR"
+rm -rf "$UI_SRC_DIR/.git"
+
 # adjust if your remote is different
 OWNER=$(git remote get-url origin | sed -E 's#.*[:/](.+)/(.+)(.git)?#\1#' | head -n1 | tr '[:upper:]' '[:lower:]')
 # use branch name for the tag (fallback to short commit hash if detached); sanitize it

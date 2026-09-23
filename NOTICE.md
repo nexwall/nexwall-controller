@@ -12,6 +12,10 @@ kept. Go module paths stay unchanged so that the source is unchanged.
   so the image no longer depends on the upstream repository at build time. `nexwall/nexwall-ui` `main` merged the
   `fix/vendor-tarball` branch first, so it carries its own vendored `@nexwall/vue-components` tarball instead of an
   npm dependency on the original package
+- `build.sh` fetches `nexwall/nexwall-ui` on the host (git/SSH) into `ui/src` before building the `ui` image, and
+  `ui/Containerfile` now `COPY`s that tree instead of running `git clone` inside the build container.
+  `nexwall/nexwall-ui` is private, so an anonymous clone from inside the isolated build container fails; the
+  original `NethServer/nethsecurity-ui` was public, so this difference didn't exist upstream
 
 2026-09-20:
 
