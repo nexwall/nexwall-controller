@@ -4,8 +4,8 @@ RUN apk add --no-cache  \
       nodejs \
       npm
 WORKDIR /build
-# tracks nexwall/nexwall-ui main branch directly, not pinned to a tag
-ARG UI_VERSION=main
+# renovate: datasource=github-releases depName=nexwall/nexwall-ui
+ARG UI_VERSION=v2.24.1-nexwall.7
 # FIXME: when git 2.49 is available in alpine, use --revision="$UI_VERSION" instead of --branch="$UI_VERSION"
 RUN git clone --depth=1 --branch="$UI_VERSION" https://github.com/nexwall/nexwall-ui . \
     && npm ci \

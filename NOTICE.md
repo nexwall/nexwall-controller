@@ -8,10 +8,10 @@ kept. Go module paths stay unchanged so that the source is unchanged.
 
 2026-09-23:
 
-- `ui/Containerfile` now builds from `nexwall/nexwall-ui` (`main` branch) instead of `NethServer/nethsecurity-ui`,
-  so the image no longer depends on the upstream repository at build time. `nexwall/nexwall-ui` `main` merged the
-  `fix/vendor-tarball` branch first, so it carries its own vendored `@nexwall/vue-components` tarball instead of an
-  npm dependency on the original package
+- `ui/Containerfile` now builds from `nexwall/nexwall-ui` instead of `NethServer/nethsecurity-ui`, pinned to tag
+  `v2.24.1-nexwall.7`, so the image no longer depends on the upstream repository at build time.
+  `nexwall/nexwall-ui` carries its own vendored `@nexwall/vue-components` tarball instead of an npm dependency on
+  the original package
 
 2026-09-20:
 
