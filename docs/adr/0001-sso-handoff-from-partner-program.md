@@ -1,9 +1,24 @@
 # ADR 0001: Accept a signed SSO handoff token from the Nexwall Partner Program
 
-**Status**: Proposed — this is a requirement, not yet implemented. Written
-from the `nexwall-partner-multitenant` side of this design
-(`docs/adr/0006-single-fqdn-email-login-tenant-handoff.md` there); this ADR
-records what it requires of *this* repo specifically.
+**Status**: Implemented (2026-10-04), not yet exercised end-to-end.
+`GET /sso/handoff` exists (`middleware/sso_handoff.go`), builds and passes
+`go vet` against the real `nexwall-multitenant-sso` dependency. What's not
+yet proven: an actual signed token from `nexwall-partner-multitenant` (that
+repo's minting side isn't built yet) or a real deployment with
+`SSO_HANDOFF_SECRET` configured (pending in `nexwall-multi-tenant`'s Helm
+chart). Originally written from the `nexwall-partner-multitenant` side of
+this design (`docs/adr/0006-single-fqdn-email-login-tenant-handoff.md`
+there); this ADR records what it requires of *this* repo specifically.
+
+Implementation notes, for whoever wires up the other two sides:
+- The handed-off username must already exist as a local account
+  (`storage.GetPassword` lookup) — this endpoint authenticates an identity,
+  it does not provision one.
+- 2FA is not bypassed: a 2FA-enabled user's handoff-minted token is not
+  marked valid until the normal 2FA step completes, mirroring `/login`'s
+  own `LoginResponse` behavior exactly.
+- `SSO_HANDOFF_SECRET` is optional per tenant (empty = feature off for that
+  tenant, not a fatal startup error).
 
 ## Context
 
