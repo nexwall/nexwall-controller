@@ -25,11 +25,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 
-	"github.com/NethServer/nethsecurity-controller/api/response"
 	"github.com/NethServer/nethsecurity-controller/api/configuration"
 	"github.com/NethServer/nethsecurity-controller/api/logs"
 	"github.com/NethServer/nethsecurity-controller/api/methods"
 	"github.com/NethServer/nethsecurity-controller/api/middleware"
+	"github.com/NethServer/nethsecurity-controller/api/response"
 	"github.com/NethServer/nethsecurity-controller/api/routines"
 	"github.com/NethServer/nethsecurity-controller/api/socket"
 	"github.com/NethServer/nethsecurity-controller/api/storage"
@@ -115,6 +115,12 @@ func setup() *gin.Engine {
 	// across every route, including these pre-authentication ones.
 	api.POST("/login", middleware.BodyLimit(32<<10), middleware.InstanceJWT().LoginHandler)
 	api.POST("/logout", middleware.BodyLimit(1<<10), middleware.InstanceJWT().LogoutHandler)
+
+	// Modified by Nexwall, 2026-10-04: ADR 0001 (sso-handoff-from-partner-program).
+	// GET, not POST: the token arrives as a URL query parameter because the
+	// caller is a browser redirect from nexwall-partner-multitenant, not an
+	// API client submitting a form.
+	api.GET("/sso/handoff", middleware.BodyLimit(1<<10), middleware.SSOHandoff)
 
 	// define healthcheck endpoint
 	api.GET("/health", func(c *gin.Context) {

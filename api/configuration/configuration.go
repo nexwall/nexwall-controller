@@ -39,6 +39,12 @@ type Configuration struct {
 	SecretJWT         string   `json:"secret_jwt"`
 	SensitiveList     []string `json:"sensitive_list"`
 	RegistrationToken string   `json:"registration_token"`
+	// Modified by Nexwall, 2026-10-04: new field for ADR 0001
+	// (sso-handoff-from-partner-program). Per-tenant secret used to verify
+	// signed handoff tokens from nexwall-partner-multitenant. Empty string
+	// means the feature is off for this tenant (handoff endpoint rejects
+	// all tokens rather than accepting an insecure default).
+	SSOHandoffSecret string `json:"sso_handoff_secret"`
 
 	CredentialsDir string `json:"credentials_dir"` // Deprecated: it can be removed in the future
 	DataDir        string `json:"data_dir"`
@@ -122,9 +128,14 @@ func Init() {
 	}
 	if os.Getenv("REGISTRATION_TOKEN") != "" {
 		Config.RegistrationToken = os.Getenv("REGISTRATION_TOKEN")
-	} else {
-		logs.Logs.Println("[CRITICAL][ENV] REGISTRATION_TOKEN variable is empty")
-		os.Exit(1)
+	}
+
+	// Modified by Nexwall, 2026-10-04: ADR 0001 sso-handoff-from-partner-program.
+	// Deliberately optional, unlike REGISTRATION_TOKEN above: an empty value
+	// means this tenant doesn't have the handoff feature configured yet, not
+	// a fatal misconfiguration. The handler rejects all tokens when empty.
+	if os.Getenv("SSO_HANDOFF_SECRET") != "" {
+		Config.SSOHandoffSecret = os.Getenv("SSO_HANDOFF_SECRET")
 	}
 
 	if os.Getenv("CREDENTIALS_DIR") != "" {
