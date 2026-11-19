@@ -91,7 +91,7 @@ func GetJoinCode(unitId string) string {
 	joinCode := gin.H{
 		"unit_id": unitId,
 		"token":   configuration.Config.RegistrationToken,
-		"fqdn":    configuration.Config.FQDN,
+		"fqdn":    configuration.Config.RegistrationFQDN,
 	}
 
 	// encode in base64

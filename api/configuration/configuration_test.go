@@ -97,6 +97,7 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, "/etc/openvpn_custom", Config.OpenVPNDir)
 	assert.Equal(t, "/tmp/secrets", Config.SecretsDir)
 	assert.Equal(t, "example.com", Config.FQDN)
+	assert.Equal(t, "example.com", Config.RegistrationFQDN) // empty REGISTRATION_FQDN falls back to FQDN
 	assert.True(t, Config.ValidSubscription)
 	assert.Equal(t, 50, Config.GlobalRateLimitAverage)
 	assert.Equal(t, 150, Config.GlobalRateLimitBurst)
@@ -175,4 +176,16 @@ func TestInitDefaults(t *testing.T) {
 	assert.Equal(t, []string{"127.0.0.1:5000"}, Config.ListenAddress)
 	assert.Equal(t, 25, Config.GlobalRateLimitAverage)
 	assert.Equal(t, 100, Config.GlobalRateLimitBurst)
+}
+
+func TestRegistrationFQDNOverride(t *testing.T) {
+	logs.Init("test")
+	originalConfig := Config
+	defer func() { Config = originalConfig }()
+	os.Setenv("FQDN", "tenant.example.com")
+	os.Setenv("REGISTRATION_FQDN", "cloud.example.com")
+	defer os.Unsetenv("REGISTRATION_FQDN")
+	Init()
+	assert.Equal(t, "tenant.example.com", Config.FQDN)
+	assert.Equal(t, "cloud.example.com", Config.RegistrationFQDN)
 }

@@ -66,6 +66,10 @@ type Configuration struct {
 
 	FQDN string `json:"fqdn"`
 
+	// RegistrationFQDN is the host units are told to register to and to open their VPN to (join code, register answer).
+	// Empty = FQDN. It lets one public name front every tenant while FQDN stays the tenant host (SSO audience).
+	RegistrationFQDN string `json:"registration_fqdn"`
+
 	CacheTTL string `json:"cache_ttl"`
 
 	ValidSubscription bool `json:"valid_subscription"`
@@ -269,6 +273,12 @@ func Init() {
 		Config.FQDN = os.Getenv("FQDN")
 	} else {
 		Config.FQDN, _ = fqdn.FqdnHostname()
+	}
+
+	if os.Getenv("REGISTRATION_FQDN") != "" {
+		Config.RegistrationFQDN = os.Getenv("REGISTRATION_FQDN")
+	} else {
+		Config.RegistrationFQDN = Config.FQDN
 	}
 
 	if os.Getenv("CACHE_TTL") != "" {

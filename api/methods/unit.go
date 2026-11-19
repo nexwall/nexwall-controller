@@ -435,7 +435,7 @@ func RegisterUnit(c *gin.Context) {
 
 		// compose config
 		config := gin.H{
-			"host":             configuration.Config.FQDN,
+			"host":             configuration.Config.RegistrationFQDN,
 			"port":             configuration.Config.OpenVPNUDPPort,
 			"ca":               caS,
 			"cert":             crtS,
