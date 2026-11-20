@@ -191,10 +191,22 @@ func setup() *gin.Engine {
 		}
 
 		// support (tier 2): read-only diagnostics from the fixed catalog
-		supportAPI := api.Group("/support", middleware.BodyLimit(16<<10))
+		supportAPI := api.Group("/support")
 		{
 			supportAPI.GET("/catalog", methods.GetSupportCatalog)
-			supportAPI.POST("/run", methods.RunSupportEntry)
+			supportAPI.POST("/run", middleware.BodyLimit(16<<10), methods.RunSupportEntry)
+
+			// tickets: forwarded to the support service for this controller's organization
+			supportAPI.GET("/stats", methods.SupportTicketsProxy("/api/v1/stats"))
+			supportAPI.GET("/tickets", methods.SupportTicketsProxy("/api/v1/tickets"))
+			supportAPI.POST("/tickets", methods.SupportTicketsProxy("/api/v1/tickets"))
+			supportAPI.GET("/tickets/:id", methods.SupportTicketsProxy("/api/v1/tickets/:id"))
+			supportAPI.GET("/tickets/:id/messages", methods.SupportTicketsProxy("/api/v1/tickets/:id/messages"))
+			supportAPI.POST("/tickets/:id/messages", methods.SupportTicketsProxy("/api/v1/tickets/:id/messages"))
+			supportAPI.POST("/tickets/:id/status", methods.SupportTicketsProxy("/api/v1/tickets/:id/status"))
+			supportAPI.GET("/tickets/:id/attachments", methods.SupportTicketsProxy("/api/v1/tickets/:id/attachments"))
+			supportAPI.POST("/tickets/:id/attachments", methods.SupportTicketsProxy("/api/v1/tickets/:id/attachments"))
+			supportAPI.GET("/attachments/:id", methods.SupportTicketsProxy("/api/v1/attachments/:id"))
 		}
 
 		// platforms APIs

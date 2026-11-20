@@ -59,6 +59,12 @@ type Configuration struct {
 
 	EasyRSAPath string `json:"easy_rsa_path"`
 
+	// Support service (tickets of the Support screen). Empty URL turns the tickets off.
+	SupportServiceURL      string `json:"support_service_url"`
+	SupportServiceHost     string `json:"support_service_host"`
+	SupportControllerToken string `json:"-"`
+	SupportOrgID           string `json:"support_org_id"`
+
 	ProxyProtocol string `json:"proxy_protocol"`
 	ProxyHost     string `json:"proxy_host"`
 	ProxyPort     string `json:"proxy_port"`
@@ -263,6 +269,11 @@ func Init() {
 	} else {
 		Config.ProxyPort = "8080"
 	}
+	Config.SupportServiceURL = strings.TrimSpace(os.Getenv("SUPPORT_SERVICE_URL"))
+	Config.SupportServiceHost = strings.TrimSpace(os.Getenv("SUPPORT_SERVICE_HOST"))
+	Config.SupportControllerToken = strings.TrimSpace(os.Getenv("SUPPORT_CONTROLLER_TOKEN"))
+	Config.SupportOrgID = strings.TrimSpace(os.Getenv("SUPPORT_ORG_ID"))
+
 	if os.Getenv("LOGIN_ENDPOINT") != "" {
 		Config.LoginEndpoint = os.Getenv("LOGIN_ENDPOINT")
 	} else {
