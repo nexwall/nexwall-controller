@@ -616,5 +616,353 @@
     "max_output": 8192,
     "artifact": "/tmp/nexwall-support-package.tgz",
     "class": "R1"
+  },
+  {
+    "id": "dns-resolve",
+    "group": "dns",
+    "kba": [
+      5,
+      15
+    ],
+    "title": {
+      "en": "Resolve a name",
+      "es": "Resolver un nombre",
+      "pt-BR": "Resolver um nome"
+    },
+    "description": {
+      "en": "Asks the firewall resolver, or a chosen server, for a name and shows the full answer and the response time.",
+      "es": "Consulta al resolvedor del firewall, o a un servidor elegido, por un nombre y muestra la respuesta completa y el tiempo.",
+      "pt-BR": "Consulta o resolvedor do firewall, ou um servidor escolhido, por um nome e mostra a resposta completa e o tempo."
+    },
+    "params": [
+      {
+        "name": "fqdn",
+        "kind": "fqdn",
+        "required": true,
+        "label": {
+          "en": "Name to resolve",
+          "es": "Nombre a resolver",
+          "pt-BR": "Nome a resolver"
+        }
+      },
+      {
+        "name": "server",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "DNS server (optional)",
+          "es": "Servidor DNS (opcional)",
+          "pt-BR": "Servidor DNS (opcional)"
+        }
+      }
+    ],
+    "script": "if [ -n \"$2\" ]; then dig +time=3 +tries=1 \"$1\" \"@$2\"; else dig +time=3 +tries=1 \"$1\"; fi\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "dns-config",
+    "group": "dns",
+    "kba": [
+      5,
+      15
+    ],
+    "title": {
+      "en": "DNS configuration and service",
+      "es": "Configuración y servicio DNS",
+      "pt-BR": "Configuração e serviço DNS"
+    },
+    "description": {
+      "en": "Resolver files, state of dnsmasq, who listens on port 53, the configuration test and recent dnsmasq log lines.",
+      "es": "Archivos del resolvedor, estado de dnsmasq, quién escucha en el puerto 53, la prueba de configuración y líneas recientes del registro.",
+      "pt-BR": "Arquivos do resolvedor, estado do dnsmasq, quem escuta na porta 53, o teste de configuração e linhas recentes do log."
+    },
+    "params": [],
+    "script": "echo \"== resolv.conf\"; cat /etc/resolv.conf; cat /tmp/resolv.conf.d/resolv.conf.auto 2>/dev/null\necho \"== dnsmasq\"; /etc/init.d/dnsmasq status; netstat -tulnp | grep ':53 '\necho \"== config test\"; dnsmasq --test 2>&1\necho \"== log\"; grep dnsmasq /var/log/messages | tail -20\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "dns-trace",
+    "group": "dns",
+    "kba": [
+      15
+    ],
+    "title": {
+      "en": "Trace a name from the root",
+      "es": "Trazar un nombre desde la raíz",
+      "pt-BR": "Rastrear um nome desde a raiz"
+    },
+    "description": {
+      "en": "Follows the delegation of a name from the root servers.",
+      "es": "Sigue la delegación de un nombre desde los servidores raíz.",
+      "pt-BR": "Acompanha a delegação de um nome a partir dos servidores raiz."
+    },
+    "params": [
+      {
+        "name": "fqdn",
+        "kind": "fqdn",
+        "required": true,
+        "label": {
+          "en": "Name to trace",
+          "es": "Nombre a trazar",
+          "pt-BR": "Nome a rastrear"
+        }
+      }
+    ],
+    "script": "dig +trace +time=3 +tries=1 \"$1\"\n",
+    "timeout_sec": 60,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "services-state",
+    "group": "services",
+    "kba": [
+      16
+    ],
+    "title": {
+      "en": "State of the main services",
+      "es": "Estado de los servicios principales",
+      "pt-BR": "Estado dos serviços principais"
+    },
+    "description": {
+      "en": "Running state of the services that must always run, the controller link and memory.",
+      "es": "Estado de los servicios que siempre deben estar activos, el enlace con el controlador y la memoria.",
+      "pt-BR": "Estado dos serviços que devem estar sempre ativos, o link com o controlador e a memória."
+    },
+    "params": [],
+    "script": "for s in firewall dnsmasq nginx dropbear ns-plug snort mwan3 ns-ui dpi openvpn; do\n  printf \"%-12s %s\\n\" \"$s\" \"$(/etc/init.d/$s status 2>&1 | head -1)\"\ndone\necho \"== CONTROLLER\"; ubus call ns.plug status\necho \"== MEMORY\"; free\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "service-detail",
+    "group": "services",
+    "kba": [
+      16
+    ],
+    "title": {
+      "en": "One service in detail",
+      "es": "Un servicio en detalle",
+      "pt-BR": "Um serviço em detalhe"
+    },
+    "description": {
+      "en": "Status, init information, whether it starts at boot, the procd entry and its recent log lines.",
+      "es": "Estado, información de arranque, si inicia con el sistema, la entrada de procd y sus líneas recientes del registro.",
+      "pt-BR": "Estado, informações de inicialização, se inicia com o sistema, a entrada do procd e suas linhas recentes do log."
+    },
+    "params": [
+      {
+        "name": "service",
+        "kind": "enum",
+        "required": true,
+        "label": {
+          "en": "Service",
+          "es": "Servicio",
+          "pt-BR": "Serviço"
+        },
+        "enum": [
+          "firewall",
+          "dnsmasq",
+          "nginx",
+          "dropbear",
+          "ns-plug",
+          "snort",
+          "mwan3",
+          "ns-ui",
+          "dpi",
+          "openvpn"
+        ]
+      }
+    ],
+    "script": "echo \"== status\"; /etc/init.d/\"$1\" status 2>&1\necho \"== info\"; /etc/init.d/\"$1\" info 2>&1\necho \"== at boot\"; /etc/init.d/\"$1\" enabled && echo yes || echo no\necho \"== procd\"; ubus call service list \"{\\\"name\\\":\\\"$1\\\"}\" 2>&1\necho \"== log\"; grep -iF -e \"$1\" /var/log/messages | tail -20\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "logs-search",
+    "group": "services",
+    "kba": [
+      16,
+      23
+    ],
+    "title": {
+      "en": "Search the system log",
+      "es": "Buscar en el registro del sistema",
+      "pt-BR": "Buscar no log do sistema"
+    },
+    "description": {
+      "en": "Shows the latest lines of the system log that contain a word.",
+      "es": "Muestra las últimas líneas del registro del sistema que contienen una palabra.",
+      "pt-BR": "Mostra as últimas linhas do log do sistema que contêm uma palavra."
+    },
+    "params": [
+      {
+        "name": "word",
+        "kind": "word",
+        "required": true,
+        "label": {
+          "en": "Word to search",
+          "es": "Palabra a buscar",
+          "pt-BR": "Palavra a buscar"
+        }
+      },
+      {
+        "name": "lines",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Lines",
+          "es": "Líneas",
+          "pt-BR": "Linhas"
+        },
+        "min": 5,
+        "max": 200,
+        "default": "30"
+      }
+    ],
+    "script": "grep -iF -e \"$1\" /var/log/messages | tail -n \"$2\"\n",
+    "timeout_sec": 20,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "fastpath-state",
+    "group": "performance",
+    "kba": [
+      18
+    ],
+    "title": {
+      "en": "Fast path state",
+      "es": "Estado del fast path",
+      "pt-BR": "Estado do fast path"
+    },
+    "description": {
+      "en": "Fast path status, accelerated flows, its rules and recent log lines.",
+      "es": "Estado del fast path, flujos acelerados, sus reglas y líneas recientes del registro.",
+      "pt-BR": "Estado do fast path, fluxos acelerados, suas regras e linhas recentes do log."
+    },
+    "params": [],
+    "script": "nexwall-fastpath status\necho \"== rules\"; nft list table inet nexwall_fastpath 2>&1 | head -30\necho \"== offloaded in conntrack\"; grep -c OFFLOAD /proc/net/nf_conntrack\necho \"== log\"; grep nexwall-fastpath /var/log/messages | tail\necho \"== service\"; /etc/init.d/nexwall-fastpath status\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "throughput",
+    "group": "performance",
+    "kba": [
+      20
+    ],
+    "title": {
+      "en": "Throughput, CPU and queues",
+      "es": "Rendimiento, CPU y colas",
+      "pt-BR": "Desempenho, CPU e filas"
+    },
+    "description": {
+      "en": "DPI queues and verdicts, kernel queue drops, top CPU users, fast path, IPS rules state and the IPS alert files.",
+      "es": "Colas y veredictos de DPI, descartes de colas del kernel, mayores consumidores de CPU, fast path, estado de reglas IPS y archivos de alertas IPS.",
+      "pt-BR": "Filas e vereditos do DPI, descartes de filas do kernel, maiores consumidores de CPU, fast path, estado das regras IPS e arquivos de alertas IPS."
+    },
+    "params": [],
+    "script": "echo \"== dpi\"; dpidbg status\necho \"== kernel queues\"; cat /proc/net/netfilter/nfnetlink_queue\necho \"== top\"; top -b -n1 | head -15\necho \"== fast path\"; nexwall-fastpath status\necho \"== ips rules\"; nexwall-ips-rules status\necho \"== ips alerts\"; ls /var/log/snort\n",
+    "timeout_sec": 40,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "dpi-stall",
+    "group": "inspection",
+    "kba": [
+      21
+    ],
+    "title": {
+      "en": "DPI engine stall report",
+      "es": "Informe de bloqueo del motor DPI",
+      "pt-BR": "Relatório de travamento do motor DPI"
+    },
+    "description": {
+      "en": "DPI engine status and the history of stall events with their diagnostic reports.",
+      "es": "Estado del motor DPI e historial de eventos de bloqueo con sus informes de diagnóstico.",
+      "pt-BR": "Estado do motor DPI e histórico de eventos de travamento com seus relatórios de diagnóstico."
+    },
+    "params": [],
+    "script": "dpidbg status\necho \"== reports\"; ls -lt /root/nfq-stall/ 2>&1 | head\necho \"== events\"; tail -n 50 /root/nfq-stall/events.log 2>&1\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "threat-shield",
+    "group": "inspection",
+    "kba": [
+      23,
+      24
+    ],
+    "title": {
+      "en": "Threat Shield feeds",
+      "es": "Listas de Threat Shield",
+      "pt-BR": "Listas do Threat Shield"
+    },
+    "description": {
+      "en": "License state, installed bundle and state of each list, recent log lines and the ad-blocking and IP-blocking settings.",
+      "es": "Estado de la licencia, paquete instalado y estado de cada lista, líneas recientes del registro y configuración de bloqueo de anuncios e IPs.",
+      "pt-BR": "Estado da licença, pacote instalado e estado de cada lista, linhas recentes do log e configuração de bloqueio de anúncios e IPs."
+    },
+    "params": [],
+    "script": "nexwall-threat-feeds status\necho \"== memory\"; free -m\necho \"== log\"; grep -E \"nexwall-threat-feeds|adblock|banIP\" /var/log/messages | tail -50\necho \"== adblock\"; uci show adblock.global 2>&1\necho \"== banip\"; uci show banip.global 2>&1 | grep -v oinkcode\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "license-state",
+    "group": "license",
+    "kba": [
+      26,
+      25
+    ],
+    "title": {
+      "en": "License and registration",
+      "es": "Licencia y registro",
+      "pt-BR": "Licença e registro"
+    },
+    "description": {
+      "en": "Serial number, subscription state and entitlements.",
+      "es": "Número de serie, estado de la suscripción y derechos.",
+      "pt-BR": "Número de série, estado da assinatura e direitos."
+    },
+    "params": [],
+    "script": "echo \"== serial\"; cat /etc/nexwall-license/serial\necho \"== state\"; licensectl state\necho \"== subscription\"; ubus call ns.subscription info\necho \"== entitlements\"; licensectl entitlements\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "web-cert",
+    "group": "license",
+    "kba": [
+      25
+    ],
+    "title": {
+      "en": "Web interface certificate",
+      "es": "Certificado de la interfaz web",
+      "pt-BR": "Certificado da interface web"
+    },
+    "description": {
+      "en": "State of the certificate of the web interface and its recent log lines.",
+      "es": "Estado del certificado de la interfaz web y sus líneas recientes del registro.",
+      "pt-BR": "Estado do certificado da interface web e suas linhas recentes do log."
+    },
+    "params": [],
+    "script": "nexwall-webui-cert status\necho \"== log\"; grep nexwall-webui-cert /var/log/messages | tail -20\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
   }
 ]

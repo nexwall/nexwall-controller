@@ -132,7 +132,7 @@ func TestDefaultCatalog(t *testing.T) {
 	assert.ErrorIs(t, err, ErrUnknownEntry)
 }
 
-var mutating = regexp.MustCompile(`(?m)(^|[;&|(]\s*)(reboot|poweroff|halt|opkg|sysupgrade|passwd|kill|killall|iptables|ip6tables|ifup|ifdown|logger)\b|uci\s+(set|add|delete|rename|revert|commit|import)|nft\s+(add|delete|flush|insert|replace)|/etc/init\.d/\S+\s+(start|stop|restart|reload|enable|disable)|ubus\s+call\s+\S+\s+(set|restart|reload|stop|start|reboot|delete|add|remove)\b|\bwget\b|\bscp\b|\bssh\b`)
+var mutating = regexp.MustCompile(`(?m)(^|[;&|(]\s*)(reboot|poweroff|halt|opkg|sysupgrade|passwd|kill|killall|iptables|ip6tables|ifup|ifdown|logger)\b|uci\s+(set|add|delete|rename|revert|commit|import)|nft\s+(add|delete|flush|insert|replace)|/etc/init\.d/\S+\s+(start|stop|restart|reload|enable|disable)\b|ubus\s+call\s+\S+\s+(set|restart|reload|stop|start|reboot|delete|add|remove)\b|\bwget\b|\bscp\b|\bssh\b`)
 
 func TestCatalogScriptsAreReadOnly(t *testing.T) {
 	c, err := Default()
@@ -388,4 +388,24 @@ func TestWriteBundle(t *testing.T) {
 		assert.Equal(t, hex.EncodeToString(sum[:]), mf.SHA256, mf.Name)
 		assert.Equal(t, len(body), mf.Bytes)
 	}
+}
+
+func TestWordParam(t *testing.T) {
+	p := Param{Name: "word", Kind: KindWord, Required: true}
+	for _, ok := range []string{"dnsmasq", "nexwall-fastpath", "eth0.10", "a:b"} {
+		if _, err := p.Validate(ok); err != nil {
+			t.Errorf("%q rejected: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "-e", "a b", "a;b", "$(id)", "a'b", "a\nb", strings.Repeat("a", 65)} {
+		if _, err := p.Validate(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
+
+func TestLintDistinguishesEnabledQuery(t *testing.T) {
+	assert.False(t, mutating.MatchString(`/etc/init.d/"$1" enabled`))
+	assert.True(t, mutating.MatchString(`/etc/init.d/"$1" enable`))
+	assert.True(t, mutating.MatchString(`/etc/init.d/dropbear restart`))
 }

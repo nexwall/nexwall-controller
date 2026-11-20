@@ -32,6 +32,7 @@ const (
 	KindPort    ParamKind = "port"
 	KindEnum    ParamKind = "enum"
 	KindInteger ParamKind = "int"
+	KindWord    ParamKind = "word"
 )
 
 // Param describes one argument of a catalog entry.
@@ -48,6 +49,8 @@ type Param struct {
 
 // ErrInvalidParam is returned, wrapped, for every rejected parameter value.
 var ErrInvalidParam = errors.New("invalid parameter")
+
+var wordRe = regexp.MustCompile(`^[A-Za-z0-9._:][A-Za-z0-9._:-]{0,63}$`)
 
 var fqdnLabel = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$`)
 
@@ -105,6 +108,11 @@ func (p Param) Validate(value string) (string, error) {
 			hi = lo
 		}
 		return validateInt(p.Name, value, lo, hi)
+	case KindWord:
+		if !wordRe.MatchString(value) {
+			return "", invalid(p.Name, "only letters, digits and . _ : - are allowed")
+		}
+		return value, nil
 	case KindEnum:
 		for _, e := range p.Enum {
 			if value == e {
