@@ -158,6 +158,11 @@ func (c *Catalog) Groups() []string {
 type Command struct {
 	Program string
 	Args    []string
+	// PacketID and PacketArgs name the Support Packet installed on the unit (ns.support run).
+	// When PacketID is set the unit runs its own copy of the packet; Program and Args are only
+	// used by the shell-based test executors.
+	PacketID   string
+	PacketArgs []string
 }
 
 // Resolve validates the supplied parameters and builds the command for an
@@ -169,6 +174,7 @@ func (c *Catalog) Resolve(id string, values map[string]string) (Entry, Command, 
 	}
 	known := map[string]bool{}
 	args := []string{"-c", e.Script, "nexwall-support-" + e.ID}
+	packetArgs := []string{}
 	for _, p := range e.Params {
 		known[p.Name] = true
 		v, err := p.Validate(values[p.Name])
@@ -176,11 +182,12 @@ func (c *Catalog) Resolve(id string, values map[string]string) (Entry, Command, 
 			return Entry{}, Command{}, err
 		}
 		args = append(args, v)
+		packetArgs = append(packetArgs, v)
 	}
 	for name := range values {
 		if !known[name] {
 			return Entry{}, Command{}, fmt.Errorf("%w: %s: not accepted by this entry", ErrInvalidParam, name)
 		}
 	}
-	return e, Command{Program: "/bin/sh", Args: args}, nil
+	return e, Command{Program: "/bin/sh", Args: args, PacketID: e.ID, PacketArgs: packetArgs}, nil
 }

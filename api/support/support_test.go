@@ -348,13 +348,16 @@ func TestRunTruncates(t *testing.T) {
 	assert.True(t, strings.HasSuffix(res.Output, "[output truncated]\n"))
 }
 
-func TestRunCleanupRunsEvenOnError(t *testing.T) {
+// The packet cleanup (drppkt/fwtrace --cleanup) runs on the unit inside ns.support, so the
+// controller sends exactly one call even when the run fails.
+func TestRunSendsOneCallAndNamesThePacket(t *testing.T) {
 	fx := &fakeExec{err: errors.New("unit unreachable")}
 	svc, aud := newService(t, fx)
 	_, err := svc.Run(context.Background(), Request{UnitID: "u", EntryID: "packet-2", Params: map[string]string{"dst": "10.0.0.1"}})
 	require.Error(t, err)
-	require.Len(t, fx.calls, 2)
-	assert.Equal(t, []string{"-c", "fwtrace --cleanup"}, fx.calls[1].Args)
+	require.Len(t, fx.calls, 1)
+	assert.Equal(t, "packet-2", fx.calls[0].PacketID)
+	assert.Equal(t, []string{"", "10.0.0.1", "", "", "20"}, fx.calls[0].PacketArgs)
 	require.Len(t, aud.recs, 1)
 	assert.Equal(t, "error", aud.recs[0].Outcome)
 }
@@ -426,16 +429,17 @@ func TestUbusExecutor(t *testing.T) {
 	}))
 	defer srv.Close()
 	u := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "tok", nil }}
-	res, err := u.Exec(context.Background(), "unit-1", Command{Program: "/bin/ping", Args: []string{"-c", "1", "10.0.0.1"}}, 5*time.Second)
+	res, err := u.Exec(context.Background(), "unit-1", Command{PacketID: "ping", PacketArgs: []string{"10.0.0.1", "3"}}, 5*time.Second)
 	require.NoError(t, err)
 	assert.Equal(t, ExecResult{Code: 3, Stdout: "out", Stderr: "err"}, res)
 	assert.Equal(t, "/unit-1/api/ubus/call", got.path)
 	assert.Equal(t, "Bearer tok", got.auth)
-	assert.Equal(t, "file", got.call["path"])
-	assert.Equal(t, "exec", got.call["method"])
+	assert.Equal(t, "ns.support", got.call["path"])
+	assert.Equal(t, "run", got.call["method"])
 	p := got.call["payload"].(map[string]any)
-	assert.Equal(t, "/bin/ping", p["command"])
-	assert.Equal(t, []any{"-c", "1", "10.0.0.1"}, p["params"])
+	assert.Equal(t, "ping", p["id"])
+	assert.Equal(t, []any{"10.0.0.1", "3"}, p["args"])
+	assert.NotContains(t, p, "command")
 }
 
 func TestUbusExecutorRejectsAndFails(t *testing.T) {
@@ -457,7 +461,7 @@ func TestUbusExecutorRejectsAndFails(t *testing.T) {
 	}))
 	defer srv.Close()
 	u := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "tok", nil }}
-	cmd := Command{Program: "/bin/true"}
+	cmd := Command{PacketID: "ping"}
 	for _, bad := range []string{"", "../x", "a/b", "a b", "a?x=1", "a#b", "..", strings.Repeat("a", 65)} {
 		_, err := u.Exec(context.Background(), bad, cmd, time.Second)
 		assert.ErrorIs(t, err, ErrBadUnit, bad)
@@ -472,7 +476,9 @@ func TestUbusExecutorRejectsAndFails(t *testing.T) {
 	_, err = u.Exec(context.Background(), "old", cmd, time.Second)
 	assert.EqualError(t, err, "this firewall version does not support remote diagnostics")
 	_, err = u.Exec(context.Background(), "x", Command{}, time.Second)
-	assert.Error(t, err)
+	assert.EqualError(t, err, "only support packets can run on a unit")
+	_, err = u.Exec(context.Background(), "x", Command{Program: "/bin/sh", Args: []string{"-c", "id"}}, time.Second)
+	assert.EqualError(t, err, "only support packets can run on a unit")
 	noTok := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "", errors.New("secret detail") }}
 	_, err = noTok.Exec(context.Background(), "x", cmd, time.Second)
 	assert.EqualError(t, err, "cannot get a session on the unit")
@@ -489,4 +495,18 @@ func TestIsRequestError(t *testing.T) {
 	_, err = svc.Run(context.Background(), Request{UnitID: "u", EntryID: "ping", Params: map[string]string{"host": "1.1.1.1; reboot"}})
 	assert.True(t, IsRequestError(err))
 	assert.False(t, IsRequestError(errors.New("unit is not reachable")))
+}
+
+func TestUbusExecutorUnitAnswers(t *testing.T) {
+	answers := map[string]string{
+		"/refused/api/ubus/call": `{"code":200,"data":{"error":"unknown packet"}}`,
+		"/timeout/api/ubus/call": `{"code":200,"data":{"code":124,"timed_out":true,"stdout":"x"}}`,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(answers[r.URL.Path])) }))
+	defer srv.Close()
+	u := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "tok", nil }}
+	_, err := u.Exec(context.Background(), "refused", Command{PacketID: "ping"}, time.Second)
+	assert.EqualError(t, err, "the unit refused the packet: unknown packet")
+	_, err = u.Exec(context.Background(), "timeout", Command{PacketID: "ping"}, 7*time.Second)
+	assert.EqualError(t, err, "command timed out after 7s")
 }

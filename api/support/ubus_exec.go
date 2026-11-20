@@ -53,9 +53,11 @@ type ubusExecReply struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
-		Code   int    `json:"code"`
-		Stdout string `json:"stdout"`
-		Stderr string `json:"stderr"`
+		Code     int    `json:"code"`
+		Stdout   string `json:"stdout"`
+		Stderr   string `json:"stderr"`
+		TimedOut bool   `json:"timed_out"`
+		Error    string `json:"error"`
 	} `json:"data"`
 }
 
@@ -64,8 +66,9 @@ func (u *UbusExecutor) Exec(ctx context.Context, unitID string, cmd Command, tim
 	if !unitIDRe.MatchString(unitID) {
 		return ExecResult{}, ErrBadUnit
 	}
-	if cmd.Program == "" {
-		return ExecResult{}, errors.New("empty command")
+	if cmd.PacketID == "" {
+		// Only the Support Packets installed on the unit run remotely; the firewall API refuses arbitrary commands.
+		return ExecResult{}, errors.New("only support packets can run on a unit")
 	}
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -76,12 +79,13 @@ func (u *UbusExecutor) Exec(ctx context.Context, unitID string, cmd Command, tim
 	if err != nil || token == "" {
 		return ExecResult{}, errors.New("cannot get a session on the unit")
 	}
-	args := cmd.Args
+	var args []string
+	args = cmd.PacketArgs
 	if args == nil {
 		args = []string{}
 	}
-	body, err := json.Marshal(ubusCall{Path: "file", Method: "exec", Payload: map[string]any{
-		"command": cmd.Program, "params": args,
+	body, err := json.Marshal(ubusCall{Path: "ns.support", Method: "run", Payload: map[string]any{
+		"id": cmd.PacketID, "args": args,
 	}})
 	if err != nil {
 		return ExecResult{}, err
@@ -122,6 +126,12 @@ func (u *UbusExecutor) Exec(ctx context.Context, unitID string, cmd Command, tim
 	var out ubusExecReply
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return ExecResult{}, errors.New("unit answer is not valid")
+	}
+	if out.Data.Error != "" {
+		return ExecResult{}, fmt.Errorf("the unit refused the packet: %s", out.Data.Error)
+	}
+	if out.Data.TimedOut {
+		return ExecResult{}, fmt.Errorf("command timed out after %s", timeout)
 	}
 	return ExecResult{Code: out.Data.Code, Stdout: out.Data.Stdout, Stderr: out.Data.Stderr}, nil
 }

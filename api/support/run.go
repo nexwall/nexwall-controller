@@ -114,11 +114,6 @@ func (s *Service) Run(ctx context.Context, req Request) (*Result, error) {
 	timeout := time.Duration(entry.TimeoutSec) * time.Second
 	started := s.now()
 	res, execErr := s.Exec.Exec(ctx, req.UnitID, cmd, timeout)
-	if entry.Cleanup != "" {
-		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
-		_, _ = s.Exec.Exec(cctx, req.UnitID, Command{Program: "/bin/sh", Args: []string{"-c", entry.Cleanup}}, 15*time.Second)
-		cancel()
-	}
 	if execErr != nil {
 		rec.Outcome, rec.Detail = "error", execErr.Error()
 		s.audit(rec)
