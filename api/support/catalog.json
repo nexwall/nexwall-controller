@@ -307,7 +307,7 @@
         }
       }
     ],
-    "script": "conntrack -C\n[ -n \"$1\" ] && conntrack -L -d \"$1\" 2>/dev/null | head -20\n",
+    "script": "conntrack -C\nif [ -n \"$1\" ]; then conntrack -L -d \"$1\" 2>/dev/null | head -20; fi\n",
     "timeout_sec": 20,
     "max_output": 65536,
     "class": "R0"
