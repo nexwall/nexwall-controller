@@ -447,6 +447,8 @@ func TestUbusExecutorRejectsAndFails(t *testing.T) {
 			time.Sleep(300 * time.Millisecond)
 		case "/err/api/ubus/call":
 			w.WriteHeader(500)
+		case "/old/api/ubus/call":
+			w.WriteHeader(403)
 		case "/junk/api/ubus/call":
 			w.Write([]byte("nope"))
 		case "/big/api/ubus/call":
@@ -467,6 +469,8 @@ func TestUbusExecutorRejectsAndFails(t *testing.T) {
 		_, err := u.Exec(context.Background(), id, cmd, time.Second)
 		assert.Error(t, err, id)
 	}
+	_, err = u.Exec(context.Background(), "old", cmd, time.Second)
+	assert.EqualError(t, err, "this firewall version does not support remote diagnostics")
 	_, err = u.Exec(context.Background(), "x", Command{}, time.Second)
 	assert.Error(t, err)
 	noTok := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "", errors.New("secret detail") }}

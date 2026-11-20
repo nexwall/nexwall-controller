@@ -111,6 +111,11 @@ func (u *UbusExecutor) Exec(ctx context.Context, unitID string, cmd Command, tim
 	if len(raw) > maxUbusReply {
 		return ExecResult{}, errors.New("unit answer is too large")
 	}
+	if res.StatusCode == http.StatusForbidden {
+		// The firewall API only lets ns.* modules and a short list of calls through, so a firewall
+		// without the support module refuses the command.
+		return ExecResult{}, errors.New("this firewall version does not support remote diagnostics")
+	}
 	if res.StatusCode != http.StatusOK {
 		return ExecResult{}, fmt.Errorf("unit answered HTTP %d", res.StatusCode)
 	}
