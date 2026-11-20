@@ -190,6 +190,13 @@ func setup() *gin.Engine {
 			unitGroups.DELETE("/:group_id", methods.DeleteUnitGroup)
 		}
 
+		// support (tier 2): read-only diagnostics from the fixed catalog
+		supportAPI := api.Group("/support", middleware.BodyLimit(16<<10))
+		{
+			supportAPI.GET("/catalog", methods.GetSupportCatalog)
+			supportAPI.POST("/run", methods.RunSupportEntry)
+		}
+
 		// platforms APIs
 		api.GET("/platform", methods.GetPlatformInfo)
 	}

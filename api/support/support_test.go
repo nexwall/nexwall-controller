@@ -15,11 +15,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -408,4 +411,78 @@ func TestLintDistinguishesEnabledQuery(t *testing.T) {
 	assert.False(t, mutating.MatchString(`/etc/init.d/"$1" enabled`))
 	assert.True(t, mutating.MatchString(`/etc/init.d/"$1" enable`))
 	assert.True(t, mutating.MatchString(`/etc/init.d/dropbear restart`))
+}
+
+func TestUbusExecutor(t *testing.T) {
+	var got struct {
+		path, auth string
+		call       map[string]any
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got.path, got.auth = r.URL.Path, r.Header.Get("Authorization")
+		json.NewDecoder(r.Body).Decode(&got.call)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"code":200,"data":{"code":3,"stdout":"out","stderr":"err"},"message":"ok"}`))
+	}))
+	defer srv.Close()
+	u := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "tok", nil }}
+	res, err := u.Exec(context.Background(), "unit-1", Command{Program: "/bin/ping", Args: []string{"-c", "1", "10.0.0.1"}}, 5*time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, ExecResult{Code: 3, Stdout: "out", Stderr: "err"}, res)
+	assert.Equal(t, "/unit-1/api/ubus/call", got.path)
+	assert.Equal(t, "Bearer tok", got.auth)
+	assert.Equal(t, "file", got.call["path"])
+	assert.Equal(t, "exec", got.call["method"])
+	p := got.call["payload"].(map[string]any)
+	assert.Equal(t, "/bin/ping", p["command"])
+	assert.Equal(t, []any{"-c", "1", "10.0.0.1"}, p["params"])
+}
+
+func TestUbusExecutorRejectsAndFails(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		switch r.URL.Path {
+		case "/slow/api/ubus/call":
+			time.Sleep(300 * time.Millisecond)
+		case "/err/api/ubus/call":
+			w.WriteHeader(500)
+		case "/junk/api/ubus/call":
+			w.Write([]byte("nope"))
+		case "/big/api/ubus/call":
+			w.Write(bytes.Repeat([]byte("a"), maxUbusReply+10))
+		}
+	}))
+	defer srv.Close()
+	u := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "tok", nil }}
+	cmd := Command{Program: "/bin/true"}
+	for _, bad := range []string{"", "../x", "a/b", "a b", "a?x=1", "a#b", "..", strings.Repeat("a", 65)} {
+		_, err := u.Exec(context.Background(), bad, cmd, time.Second)
+		assert.ErrorIs(t, err, ErrBadUnit, bad)
+	}
+	assert.Equal(t, int32(0), calls.Load(), "a bad unit id must never reach the proxy")
+	_, err := u.Exec(context.Background(), "slow", cmd, 50*time.Millisecond)
+	assert.ErrorContains(t, err, "timed out")
+	for _, id := range []string{"err", "junk", "big"} {
+		_, err := u.Exec(context.Background(), id, cmd, time.Second)
+		assert.Error(t, err, id)
+	}
+	_, err = u.Exec(context.Background(), "x", Command{}, time.Second)
+	assert.Error(t, err)
+	noTok := &UbusExecutor{BaseURL: srv.URL, Token: func(context.Context, string) (string, error) { return "", errors.New("secret detail") }}
+	_, err = noTok.Exec(context.Background(), "x", cmd, time.Second)
+	assert.EqualError(t, err, "cannot get a session on the unit")
+}
+
+func TestIsRequestError(t *testing.T) {
+	cat, err := Default()
+	require.NoError(t, err)
+	svc := &Service{Catalog: cat, Exec: nil}
+	_, err = svc.Run(context.Background(), Request{UnitID: "u", EntryID: "nope"})
+	assert.True(t, IsRequestError(err))
+	_, err = svc.Run(context.Background(), Request{EntryID: "ping"})
+	assert.True(t, IsRequestError(err))
+	_, err = svc.Run(context.Background(), Request{UnitID: "u", EntryID: "ping", Params: map[string]string{"host": "1.1.1.1; reboot"}})
+	assert.True(t, IsRequestError(err))
+	assert.False(t, IsRequestError(errors.New("unit is not reachable")))
 }

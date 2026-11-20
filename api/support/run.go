@@ -149,3 +149,9 @@ func (s *Service) Run(ctx context.Context, req Request) (*Result, error) {
 	s.audit(rec)
 	return out, nil
 }
+
+// IsRequestError reports whether err comes from the request itself (unknown
+// entry, rejected parameter, missing unit) and not from the firewall.
+func IsRequestError(err error) bool {
+	return errors.Is(err, ErrInvalidParam) || errors.Is(err, ErrUnknownEntry) || errors.Is(err, ErrNoUnit)
+}
