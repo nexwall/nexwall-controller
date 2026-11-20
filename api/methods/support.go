@@ -83,11 +83,14 @@ func GetSupportCatalog(c *gin.Context) {
 		Description map[string]string `json:"description"`
 		Params      []support.Param   `json:"params"`
 		TimeoutSec  int               `json:"timeout_sec"`
+		// Script is what the entry runs on the firewall; the screen shows it before the user authorizes the run.
+		Script    string `json:"script"`
+		MaxOutput int    `json:"max_output"`
 	}
 	entries := svc.Catalog.List()
 	out := make([]item, 0, len(entries))
 	for _, e := range entries {
-		out = append(out, item{e.ID, e.Group, e.Class, e.KBA, e.Title, e.Description, e.Params, e.TimeoutSec})
+		out = append(out, item{e.ID, e.Group, e.Class, e.KBA, e.Title, e.Description, e.Params, e.TimeoutSec, e.Script, e.MaxOutput})
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": gin.H{"entries": out, "groups": svc.Catalog.Groups()}})
 }
