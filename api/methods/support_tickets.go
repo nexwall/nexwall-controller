@@ -7,6 +7,7 @@
 package methods
 
 import (
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -119,6 +120,17 @@ func SupportTicketsProxy(upstream string) gin.HandlerFunc {
 			},
 			ModifyResponse: func(r *http.Response) error {
 				r.Header.Del("Set-Cookie")
+				// A 401 from the support service means this server's own secret was refused, not that the
+				// user's session ended; passing it on would sign the user out of the page.
+				if r.StatusCode == http.StatusUnauthorized {
+					r.Body.Close()
+					body := `{"code":502,"message":"support service refused the request","data":null}`
+					r.StatusCode, r.Status = http.StatusBadGateway, "502 Bad Gateway"
+					r.Body = io.NopCloser(strings.NewReader(body))
+					r.ContentLength = int64(len(body))
+					r.Header.Set("Content-Type", "application/json")
+					r.Header.Del("Www-Authenticate")
+				}
 				return nil
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, _ error) {

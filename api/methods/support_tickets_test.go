@@ -114,3 +114,18 @@ func TestSupportTicketsProxyUnreachable(t *testing.T) {
 	assert.Equal(t, 502, rec.Code)
 	assert.NotContains(t, rec.Body.String(), "127.0.0.1")
 }
+
+func TestSupportTicketsProxyUpstream401IsNotASessionError(t *testing.T) {
+	r, _ := supportTicketsRig(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("WWW-Authenticate", "Bearer")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"portal authentication failed"}`))
+	}))
+	defer srv.Close()
+	configuration.Config.SupportServiceURL = srv.URL
+	rec := supportCall(r, "GET", "/support/tickets", "", nil)
+	assert.Equal(t, 502, rec.Code, "a 401 would sign the user out")
+	assert.Empty(t, rec.Header().Get("Www-Authenticate"))
+	assert.NotContains(t, rec.Body.String(), "portal authentication failed")
+}

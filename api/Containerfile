@@ -12,6 +12,7 @@ COPY response response
 COPY routines routines
 COPY socket socket
 COPY storage storage
+COPY support support
 COPY utils utils
 COPY main.go .
 COPY main_test.go .
