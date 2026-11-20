@@ -1,0 +1,620 @@
+[
+  {
+    "id": "health-check",
+    "group": "health",
+    "kba": [
+      1
+    ],
+    "title": {
+      "en": "Health check in 5 minutes",
+      "es": "Verificación de estado en 5 minutos",
+      "pt-BR": "Verificação de saúde em 5 minutos"
+    },
+    "description": {
+      "en": "Disk, memory, links, internet, DNS, controller link, connection table and critical errors.",
+      "es": "Disco, memoria, enlaces, internet, DNS, enlace con el controlador, tabla de conexiones y errores críticos.",
+      "pt-BR": "Disco, memória, links, internet, DNS, link com o controlador, tabela de conexões e erros críticos."
+    },
+    "params": [],
+    "script": "echo \"== TIME\"; date; uptime\necho \"== DISK\"; df -h / /mnt/data 2>/dev/null\necho \"== MEMORY (MB)\"; free -m | head -2\necho \"== LINKS\"; ip -br a\necho \"== DEFAULT ROUTE\"; ip route | grep default\necho \"== INTERNET\"; ping -c2 -W2 8.8.8.8 | tail -2\necho \"== DNS\"; dig +short +time=3 +tries=1 nexwall.com.br\necho \"== CONTROLLER\"; ubus call ns.plug status | grep '\"status\"'\necho \"== CONNTRACK (now / max)\"; conntrack -C; cat /proc/sys/net/netfilter/nf_conntrack_max\necho \"== CRITICAL ERRORS\"; grep -iE 'out of memory|oom|segfault|panic' /var/log/messages | tail -3\n",
+    "timeout_sec": 40,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "links-routes",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Interfaces and routes",
+      "es": "Interfaces y rutas",
+      "pt-BR": "Interfaces e rotas"
+    },
+    "description": {
+      "en": "Interface states and addresses, and the routing table.",
+      "es": "Estado y direcciones de las interfaces, y tabla de rutas.",
+      "pt-BR": "Estado e endereços das interfaces, e tabela de rotas."
+    },
+    "params": [],
+    "script": "ip -br a; echo; ip route\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "ping",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Ping a destination",
+      "es": "Ping a un destino",
+      "pt-BR": "Ping para um destino"
+    },
+    "description": {
+      "en": "Sends a few ICMP echo requests from the firewall.",
+      "es": "Envía unos pocos paquetes ICMP desde el firewall.",
+      "pt-BR": "Envia alguns pacotes ICMP a partir do firewall."
+    },
+    "params": [
+      {
+        "name": "host",
+        "kind": "host",
+        "required": true,
+        "label": {
+          "en": "Destination (IP or name)",
+          "es": "Destino (IP o nombre)",
+          "pt-BR": "Destino (IP ou nome)"
+        }
+      },
+      {
+        "name": "count",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Packets",
+          "es": "Paquetes",
+          "pt-BR": "Pacotes"
+        },
+        "min": 1,
+        "max": 10,
+        "default": "3"
+      }
+    ],
+    "script": "ping -c \"$2\" -W2 \"$1\"\n",
+    "timeout_sec": 40,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "traceroute",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Trace the route to a destination",
+      "es": "Trazar la ruta a un destino",
+      "pt-BR": "Rastrear a rota até um destino"
+    },
+    "description": {
+      "en": "Shows each router on the way, up to a maximum number of hops.",
+      "es": "Muestra cada router del camino, hasta un máximo de saltos.",
+      "pt-BR": "Mostra cada roteador no caminho, até um máximo de saltos."
+    },
+    "params": [
+      {
+        "name": "host",
+        "kind": "host",
+        "required": true,
+        "label": {
+          "en": "Destination (IP or name)",
+          "es": "Destino (IP o nombre)",
+          "pt-BR": "Destino (IP ou nome)"
+        }
+      },
+      {
+        "name": "hops",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Maximum hops",
+          "es": "Saltos máximos",
+          "pt-BR": "Saltos máximos"
+        },
+        "min": 1,
+        "max": 15,
+        "default": "5"
+      }
+    ],
+    "script": "traceroute -n -m \"$2\" -w1 \"$1\"\n",
+    "timeout_sec": 60,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "path-mtu",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Path MTU to a destination",
+      "es": "MTU de la ruta a un destino",
+      "pt-BR": "MTU do caminho até um destino"
+    },
+    "description": {
+      "en": "Sends one packet that must not be fragmented and shows the route the kernel chose.",
+      "es": "Envía un paquete que no debe fragmentarse y muestra la ruta elegida por el kernel.",
+      "pt-BR": "Envia um pacote que não pode ser fragmentado e mostra a rota escolhida pelo kernel."
+    },
+    "params": [
+      {
+        "name": "host",
+        "kind": "host",
+        "required": true,
+        "label": {
+          "en": "Destination (IP or name)",
+          "es": "Destino (IP o nombre)",
+          "pt-BR": "Destino (IP ou nome)"
+        }
+      },
+      {
+        "name": "size",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Payload size (bytes)",
+          "es": "Tamaño de datos (bytes)",
+          "pt-BR": "Tamanho dos dados (bytes)"
+        },
+        "min": 500,
+        "max": 1472,
+        "default": "1472"
+      }
+    ],
+    "script": "ping -c1 -W2 -M do -s \"$2\" \"$1\"; echo; ip route get \"$1\"\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "port-test",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Is the port open?",
+      "es": "¿Está abierto el puerto?",
+      "pt-BR": "A porta está aberta?"
+    },
+    "description": {
+      "en": "Tests a TCP connection from the firewall: open, refused or timed out.",
+      "es": "Prueba una conexión TCP desde el firewall: abierta, rechazada o sin respuesta.",
+      "pt-BR": "Testa uma conexão TCP a partir do firewall: aberta, recusada ou sem resposta."
+    },
+    "params": [
+      {
+        "name": "host",
+        "kind": "host",
+        "required": true,
+        "label": {
+          "en": "Destination (IP or name)",
+          "es": "Destino (IP o nombre)",
+          "pt-BR": "Destino (IP ou nome)"
+        }
+      },
+      {
+        "name": "port",
+        "kind": "port",
+        "required": true,
+        "label": {
+          "en": "TCP port",
+          "es": "Puerto TCP",
+          "pt-BR": "Porta TCP"
+        }
+      }
+    ],
+    "script": "nc -zv -w3 \"$1\" \"$2\" 2>&1\n",
+    "timeout_sec": 20,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "https-check",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Web service and certificate",
+      "es": "Servicio web y certificado",
+      "pt-BR": "Serviço web e certificado"
+    },
+    "description": {
+      "en": "Fetches the response headers of an HTTPS site and shows its certificate subject, issuer and verification.",
+      "es": "Obtiene las cabeceras de un sitio HTTPS y muestra el sujeto, emisor y verificación del certificado.",
+      "pt-BR": "Obtém os cabeçalhos de um site HTTPS e mostra o assunto, emissor e verificação do certificado."
+    },
+    "params": [
+      {
+        "name": "fqdn",
+        "kind": "fqdn",
+        "required": true,
+        "label": {
+          "en": "Site name",
+          "es": "Nombre del sitio",
+          "pt-BR": "Nome do site"
+        }
+      }
+    ],
+    "script": "curl -sI --max-time 6 \"https://$1\" | head -3\necho | openssl s_client -connect \"$1\":443 -servername \"$1\" 2>/dev/null | grep -E \"subject=|issuer=|Verify return|Protocol\"\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "listening",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "What is listening on the firewall",
+      "es": "Qué escucha en el firewall",
+      "pt-BR": "O que está escutando no firewall"
+    },
+    "description": {
+      "en": "TCP and UDP ports in use and the program that owns each.",
+      "es": "Puertos TCP y UDP en uso y el programa de cada uno.",
+      "pt-BR": "Portas TCP e UDP em uso e o programa de cada uma."
+    },
+    "params": [],
+    "script": "netstat -tulnp\n",
+    "timeout_sec": 30,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "conntrack",
+    "group": "connectivity",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Connection table",
+      "es": "Tabla de conexiones",
+      "pt-BR": "Tabela de conexões"
+    },
+    "description": {
+      "en": "Number of tracked connections and, optionally, the ones towards a destination.",
+      "es": "Número de conexiones registradas y, opcionalmente, las dirigidas a un destino.",
+      "pt-BR": "Número de conexões rastreadas e, opcionalmente, as destinadas a um destino."
+    },
+    "params": [
+      {
+        "name": "dst",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "Destination IP (optional)",
+          "es": "IP de destino (opcional)",
+          "pt-BR": "IP de destino (opcional)"
+        }
+      }
+    ],
+    "script": "conntrack -C\n[ -n \"$1\" ] && conntrack -L -d \"$1\" 2>/dev/null | head -20\n",
+    "timeout_sec": 20,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "dpi-unknown",
+    "group": "inspection",
+    "kba": [
+      22
+    ],
+    "title": {
+      "en": "Unknown applications (DPI)",
+      "es": "Aplicaciones desconocidas (DPI)",
+      "pt-BR": "Aplicações desconhecidas (DPI)"
+    },
+    "description": {
+      "en": "Catalog status and the most frequent flows classified as Unknown.",
+      "es": "Estado del catálogo y los flujos más frecuentes clasificados como desconocidos.",
+      "pt-BR": "Estado do catálogo e os fluxos mais frequentes classificados como desconhecidos."
+    },
+    "params": [
+      {
+        "name": "lines",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Lines",
+          "es": "Líneas",
+          "pt-BR": "Linhas"
+        },
+        "min": 5,
+        "max": 100,
+        "default": "30"
+      }
+    ],
+    "script": "nexwall-dpi-catalog status\necho\ndpidbg unknown -n \"$1\"\n",
+    "timeout_sec": 40,
+    "max_output": 65536,
+    "class": "R0"
+  },
+  {
+    "id": "packet-1",
+    "group": "packet",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Packet 1: who dropped it (drppkt)",
+      "es": "Paquete 1: quién lo descartó (drppkt)",
+      "pt-BR": "Pacote 1: quem descartou (drppkt)"
+    },
+    "description": {
+      "en": "Watches the packets matching the filter and shows the rule that dropped them. Reproduce the problem while it runs.",
+      "es": "Observa los paquetes que coinciden con el filtro y muestra la regla que los descartó. Reproduzca el problema mientras se ejecuta.",
+      "pt-BR": "Observa os pacotes que correspondem ao filtro e mostra a regra que os descartou. Reproduza o problema enquanto executa."
+    },
+    "params": [
+      {
+        "name": "src",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "Source IP",
+          "es": "IP de origen",
+          "pt-BR": "IP de origem"
+        }
+      },
+      {
+        "name": "dst",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "Destination IP",
+          "es": "IP de destino",
+          "pt-BR": "IP de destino"
+        }
+      },
+      {
+        "name": "port",
+        "kind": "port",
+        "required": false,
+        "label": {
+          "en": "Destination port",
+          "es": "Puerto de destino",
+          "pt-BR": "Porta de destino"
+        }
+      },
+      {
+        "name": "proto",
+        "kind": "enum",
+        "required": false,
+        "label": {
+          "en": "Protocol",
+          "es": "Protocolo",
+          "pt-BR": "Protocolo"
+        },
+        "enum": [
+          "tcp",
+          "udp",
+          "icmp"
+        ]
+      },
+      {
+        "name": "seconds",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Duration (seconds)",
+          "es": "Duración (segundos)",
+          "pt-BR": "Duração (segundos)"
+        },
+        "min": 5,
+        "max": 60,
+        "default": "20"
+      }
+    ],
+    "script": "add() { f=\"${f:+$f and }$*\"; }\nset -f\nsrc=\"$1\"; dst=\"$2\"; port=\"$3\"; proto=\"$4\"; secs=\"$5\"; f=\"\"\n[ -n \"$src\" ] && add src host \"$src\"\n[ -n \"$dst\" ] && add dst host \"$dst\"\n[ -n \"$port\" ] && add dst port \"$port\"\n[ -n \"$proto\" ] && add proto \"$proto\"\n[ -z \"$f\" ] && { echo \"Enter at least a source or a destination.\"; exit 2; }\necho \"Filter: $f (for $secs s). Reproduce the problem now.\"\ndrppkt -i \"$secs\" $f\n",
+    "timeout_sec": 90,
+    "max_output": 65536,
+    "cleanup": "drppkt --cleanup",
+    "class": "R1"
+  },
+  {
+    "id": "packet-2",
+    "group": "packet",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Packet 2: path through the rules (fwtrace)",
+      "es": "Paquete 2: camino por las reglas (fwtrace)",
+      "pt-BR": "Pacote 2: caminho pelas regras (fwtrace)"
+    },
+    "description": {
+      "en": "Traces the path of the matching packets through the firewall rules. Reproduce the problem while it runs.",
+      "es": "Traza el camino de los paquetes por las reglas del firewall. Reproduzca el problema mientras se ejecuta.",
+      "pt-BR": "Rastreia o caminho dos pacotes pelas regras do firewall. Reproduza o problema enquanto executa."
+    },
+    "params": [
+      {
+        "name": "src",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "Source IP",
+          "es": "IP de origen",
+          "pt-BR": "IP de origem"
+        }
+      },
+      {
+        "name": "dst",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "Destination IP",
+          "es": "IP de destino",
+          "pt-BR": "IP de destino"
+        }
+      },
+      {
+        "name": "port",
+        "kind": "port",
+        "required": false,
+        "label": {
+          "en": "Destination port",
+          "es": "Puerto de destino",
+          "pt-BR": "Porta de destino"
+        }
+      },
+      {
+        "name": "proto",
+        "kind": "enum",
+        "required": false,
+        "label": {
+          "en": "Protocol",
+          "es": "Protocolo",
+          "pt-BR": "Protocolo"
+        },
+        "enum": [
+          "tcp",
+          "udp",
+          "icmp"
+        ]
+      },
+      {
+        "name": "seconds",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Duration (seconds)",
+          "es": "Duración (segundos)",
+          "pt-BR": "Duração (segundos)"
+        },
+        "min": 5,
+        "max": 60,
+        "default": "20"
+      }
+    ],
+    "script": "add() { f=\"${f:+$f and }$*\"; }\nset -f\nsrc=\"$1\"; dst=\"$2\"; port=\"$3\"; proto=\"$4\"; secs=\"$5\"; f=\"\"\n[ -n \"$src\" ] && add src host \"$src\"\n[ -n \"$dst\" ] && add dst host \"$dst\"\n[ -n \"$port\" ] && add dst port \"$port\"\n[ -n \"$proto\" ] && add proto \"$proto\"\n[ -z \"$f\" ] && { echo \"Enter at least a source or a destination.\"; exit 2; }\necho \"Filter: $f (for $secs s). Reproduce the problem now.\"\nfwtrace -i \"$secs\" $f\n",
+    "timeout_sec": 90,
+    "max_output": 65536,
+    "cleanup": "fwtrace --cleanup",
+    "class": "R1"
+  },
+  {
+    "id": "packet-3",
+    "group": "packet",
+    "kba": [
+      14
+    ],
+    "title": {
+      "en": "Packet 3: both directions (fwtrace)",
+      "es": "Paquete 3: ambos sentidos (fwtrace)",
+      "pt-BR": "Pacote 3: ambos os sentidos (fwtrace)"
+    },
+    "description": {
+      "en": "Like packet 2, also following the reply direction, where an inspection or IP-blocking verdict often appears.",
+      "es": "Como el paquete 2, y además sigue el sentido de respuesta, donde suele aparecer un veredicto de inspección o bloqueo de IP.",
+      "pt-BR": "Como o pacote 2, e também acompanha o sentido de resposta, onde costuma aparecer um veredito de inspeção ou bloqueio de IP."
+    },
+    "params": [
+      {
+        "name": "src",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "Source IP",
+          "es": "IP de origen",
+          "pt-BR": "IP de origem"
+        }
+      },
+      {
+        "name": "dst",
+        "kind": "ip",
+        "required": false,
+        "label": {
+          "en": "Destination IP",
+          "es": "IP de destino",
+          "pt-BR": "IP de destino"
+        }
+      },
+      {
+        "name": "port",
+        "kind": "port",
+        "required": false,
+        "label": {
+          "en": "Destination port",
+          "es": "Puerto de destino",
+          "pt-BR": "Porta de destino"
+        }
+      },
+      {
+        "name": "proto",
+        "kind": "enum",
+        "required": false,
+        "label": {
+          "en": "Protocol",
+          "es": "Protocolo",
+          "pt-BR": "Protocolo"
+        },
+        "enum": [
+          "tcp",
+          "udp",
+          "icmp"
+        ]
+      },
+      {
+        "name": "seconds",
+        "kind": "int",
+        "required": false,
+        "label": {
+          "en": "Duration (seconds)",
+          "es": "Duración (segundos)",
+          "pt-BR": "Duração (segundos)"
+        },
+        "min": 5,
+        "max": 60,
+        "default": "20"
+      }
+    ],
+    "script": "add() { f=\"${f:+$f and }$*\"; }\nset -f\nsrc=\"$1\"; dst=\"$2\"; port=\"$3\"; proto=\"$4\"; secs=\"$5\"; f=\"\"\n[ -n \"$src\" ] && add src host \"$src\"\n[ -n \"$dst\" ] && add dst host \"$dst\"\n[ -n \"$port\" ] && add dst port \"$port\"\n[ -n \"$proto\" ] && add proto \"$proto\"\n[ -z \"$f\" ] && { echo \"Enter at least a source or a destination.\"; exit 2; }\necho \"Filter: $f (for $secs s). Reproduce the problem now.\"\nfwtrace --both -i \"$secs\" $f\n",
+    "timeout_sec": 90,
+    "max_output": 65536,
+    "cleanup": "fwtrace --cleanup",
+    "class": "R1"
+  },
+  {
+    "id": "support-package",
+    "group": "package",
+    "kba": [
+      17
+    ],
+    "title": {
+      "en": "Support package",
+      "es": "Paquete de soporte",
+      "pt-BR": "Pacote de suporte"
+    },
+    "description": {
+      "en": "Collects system, disk, memory, links, routes, services, controller state, recent log and the configuration without secrets, into one file.",
+      "es": "Reúne sistema, disco, memoria, enlaces, rutas, servicios, estado del controlador, registro reciente y la configuración sin secretos en un archivo.",
+      "pt-BR": "Reúne sistema, disco, memória, links, rotas, serviços, estado do controlador, log recente e a configuração sem segredos em um arquivo."
+    },
+    "params": [],
+    "script": "D=/tmp/nexwall-support-package; rm -rf \"$D\" \"$D.tgz\"; mkdir -p \"$D\"\n{ date; uptime; cat /etc/os-release; } > \"$D/system.txt\"\ndf -h > \"$D/disk.txt\"; free -m > \"$D/memory.txt\"\nip -br a > \"$D/links.txt\"; ip route > \"$D/routes.txt\"\nubus call service list > \"$D/services.json\"\nubus call ns.plug status > \"$D/controller.txt\"\ntail -n 1000 /var/log/messages > \"$D/messages.txt\"\nuci show 2>/dev/null | grep -viE 'password|secret|key|psk|token|passwd' > \"$D/config.txt\"\ntar czf \"$D.tgz\" -C /tmp nexwall-support-package; rm -rf \"$D\"; ls -l \"$D.tgz\"\n",
+    "timeout_sec": 60,
+    "max_output": 8192,
+    "artifact": "/tmp/nexwall-support-package.tgz",
+    "class": "R1"
+  }
+]
