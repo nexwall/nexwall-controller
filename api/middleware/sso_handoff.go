@@ -81,14 +81,26 @@ func SSOHandoff(c *gin.Context) {
 
 	username := claims.Subject
 
-	// Deliberately does not auto-provision: the handed-off identity must
-	// already exist as a local account (e.g. created at tenant-provisioning
-	// time, matching this tenant's admin_email -- see
-	// nexwall-multi-tenant's values.yaml secrets.adminUsername, which ADR
-	// 0008 there sets to the tenant's email specifically so this lookup
-	// succeeds). A signed token proves identity; it does not by itself
-	// grant the authority to create new local accounts.
-	if storage.GetPassword(username) == "" {
+	// ADR 0011 (nexwall-multi-tenant): a token signed with the tenant's own secret
+	// and carrying an explicit role ("admin" or "user") is the control plane
+	// vouching for a verified identity (Logto sign-in with MFA), so the local
+	// account is created on first use and its admin flag follows the role.
+	// Firewall groups stay managed inside the controller. A token without a role
+	// keeps the original behavior: the account must already exist.
+	if admin, ok := ssoRole(claims.Role); ok {
+		created, err := storage.EnsureSSOAccount(username, ssoDisplayName(username), admin)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, structs.Map(response.StatusInternalServerError{
+				Code:    500,
+				Message: "could not prepare the account",
+				Data:    nil,
+			}))
+			return
+		}
+		if created {
+			logs.Logs.Println("[INFO][SSO] account created from handoff for " + username)
+		}
+	} else if storage.GetPassword(username) == "" {
 		logs.Logs.Println("[WARN][SSO] handoff for unknown local user " + username)
 		c.JSON(http.StatusUnauthorized, structs.Map(response.StatusUnauthorized{
 			Code:    401,
@@ -124,4 +136,29 @@ func SSOHandoff(c *gin.Context) {
 
 	logs.Logs.Println("[INFO][SSO] handoff success for user " + username)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "expire": expire, "token": tokenString})
+}
+
+// ssoRole maps the handoff role claim to the controller administrator flag.
+// Any other value (including empty) is not a provisioning role.
+func ssoRole(role string) (admin bool, ok bool) {
+	switch role {
+	case "admin":
+		return true, true
+	case "user":
+		return false, true
+	}
+	return false, false
+}
+
+// ssoDisplayName is the part of the e-mail before the @.
+func ssoDisplayName(username string) string {
+	for i := 0; i < len(username); i++ {
+		if username[i] == '@' {
+			if i == 0 {
+				break
+			}
+			return username[:i]
+		}
+	}
+	return username
 }

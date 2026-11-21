@@ -10,6 +10,8 @@
 package storage
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"bytes"
 	"context"
 	"database/sql"
@@ -325,6 +327,33 @@ func AddAccount(account models.Account) (int, error) {
 	ReloadACLs()
 
 	return id, err
+}
+
+// EnsureSSOAccount creates (or updates) the local account of a user who signed in
+// through the signed SSO handoff with an explicit role (Nexwall 2026-11-21,
+// nexwall-multi-tenant ADR 0011). The password is random and never disclosed, so
+// the account can only be entered through the handoff. The admin flag follows the
+// handoff role every time; firewall groups are never touched here (the
+// controller's own Users page owns them).
+func EnsureSSOAccount(username, displayName string, admin bool) (created bool, err error) {
+	random := make([]byte, 32)
+	if _, err = rand.Read(random); err != nil {
+		return false, err
+	}
+	pgpool, pgctx := ReportInstance()
+	err = pgpool.QueryRow(pgctx,
+		`INSERT INTO accounts (username, password, admin, display_name, unit_groups, created_at)
+		 VALUES ($1, $2, $3, $4, '{}'::int[], NOW())
+		 ON CONFLICT (username) DO UPDATE SET admin = EXCLUDED.admin, updated_at = NOW()
+		 RETURNING (xmax = 0)`,
+		username, utils.HashPassword(hex.EncodeToString(random)), admin, displayName,
+	).Scan(&created)
+	if err != nil {
+		logs.Logs.Println("[ERR][STORAGE][ENSURE_SSO_ACCOUNT] " + err.Error())
+		return false, err
+	}
+	ReloadACLs()
+	return created, nil
 }
 
 func UpdateAccount(accountID string, account models.AccountUpdate) error {
