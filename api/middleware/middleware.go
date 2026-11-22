@@ -465,3 +465,20 @@ func RateLimiter(rps rate.Limit, burst int) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// BlockWhenManaged refuses the route when identities are managed by the partner
+// portal (IDENTITY_MODE=managed): account creation and deletion, local password
+// changes and local 2FA belong to the portal and its Logto, not to the controller.
+func BlockWhenManaged() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if configuration.Config.IdentityManaged {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"message": "managed_identity",
+				"data":    nil,
+			})
+			return
+		}
+		c.Next()
+	}
+}

@@ -177,6 +177,27 @@ func UpdateAccount(c *gin.Context) {
 		return
 	}
 
+	// managed identities: only the firewall groups can be edited here
+	if configuration.Config.IdentityManaged {
+		for _, groupID := range json.UnitGroups {
+			exists, gerr := storage.UnitGroupExists(groupID)
+			if gerr != nil {
+				c.JSON(http.StatusInternalServerError, structs.Map(response.StatusInternalServerError{Code: 500, Message: "error checking group existence", Data: gerr.Error()}))
+				return
+			}
+			if !exists {
+				c.JSON(http.StatusBadRequest, structs.Map(response.StatusBadRequest{Code: 400, Message: "unit group does not exist", Data: gin.H{"unit_group": groupID}}))
+				return
+			}
+		}
+		if err := storage.UpdateAccountGroups(accountID, json.UnitGroups); err != nil {
+			c.JSON(http.StatusInternalServerError, structs.Map(response.StatusInternalServerError{Code: 500, Message: "update account error", Data: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, structs.Map(response.StatusOK{Code: 200, Message: "success", Data: nil}))
+		return
+	}
+
 	// update account
 	err := storage.UpdateAccount(accountID, json)
 

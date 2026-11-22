@@ -46,6 +46,11 @@ type Configuration struct {
 	// all tokens rather than accepting an insecure default).
 	SSOHandoffSecret string `json:"sso_handoff_secret"`
 
+	// IdentityManaged is true when accounts are owned by the partner portal (ADR
+	// 0011): the controller only assigns firewall groups; it never creates or
+	// deletes accounts, changes passwords or manages 2FA itself.
+	IdentityManaged bool `json:"identity_managed"`
+
 	CredentialsDir string `json:"credentials_dir"` // Deprecated: it can be removed in the future
 	DataDir        string `json:"data_dir"`
 	Issuer2FA      string `json:"issuer_2fa"`
@@ -144,6 +149,8 @@ func Init() {
 	// Deliberately optional, unlike REGISTRATION_TOKEN above: an empty value
 	// means this tenant doesn't have the handoff feature configured yet, not
 	// a fatal misconfiguration. The handler rejects all tokens when empty.
+	Config.IdentityManaged = os.Getenv("IDENTITY_MODE") == "managed"
+
 	if os.Getenv("SSO_HANDOFF_SECRET") != "" {
 		Config.SSOHandoffSecret = os.Getenv("SSO_HANDOFF_SECRET")
 	}

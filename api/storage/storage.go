@@ -402,6 +402,28 @@ func UpdateAccount(accountID string, account models.AccountUpdate) error {
 	return err
 }
 
+// UpdateAccountGroups sets only the firewall groups of an account. In managed
+// identity mode this is the single thing the controller edits: name, e-mail,
+// role and password come from the portal.
+func UpdateAccountGroups(accountID string, groups []int) error {
+	pgpool, pgctx := ReportInstance()
+	strs := make([]string, len(groups))
+	for i, v := range groups {
+		strs[i] = strconv.Itoa(v)
+	}
+	_, err := pgpool.Exec(pgctx,
+		`UPDATE accounts SET unit_groups = $1::int[], updated_at = NOW() WHERE id = $2`,
+		"{"+strings.Join(strs, ",")+"}",
+		accountID,
+	)
+	if err != nil {
+		logs.Logs.Println("[ERR][STORAGE][UPDATE_ACCOUNT_GROUPS] " + err.Error())
+		return err
+	}
+	ReloadACLs()
+	return nil
+}
+
 func IsAdmin(accountUsername string) bool {
 	for _, admin := range adminUsers {
 		if admin == accountUsername {

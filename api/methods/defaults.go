@@ -28,6 +28,8 @@ func GetDefaults(c *gin.Context) {
 			"webssh_path":        configuration.Config.WebSSHPath,
 			"grafana_path":       configuration.Config.GrafanaPath,
 			"valid_subscription": configuration.Config.ValidSubscription,
+			"units_unlimited":    configuration.Config.IdentityManaged,
+			"identity_managed":   configuration.Config.IdentityManaged,
 		},
 	}))
 }

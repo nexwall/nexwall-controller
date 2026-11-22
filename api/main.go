@@ -141,8 +141,8 @@ func setup() *gin.Engine {
 
 		// 2FA APIs
 		api.GET("/2fa", methods.Get2FAStatus)
-		api.DELETE("/2fa", methods.Del2FAStatus)
-		api.GET("/2fa/qr-code", methods.QRCode)
+		api.DELETE("/2fa", middleware.BlockWhenManaged(), methods.Del2FAStatus)
+		api.GET("/2fa/qr-code", middleware.BlockWhenManaged(), methods.QRCode)
 
 		// accounts APIs
 		accounts := api.Group("/accounts")
@@ -150,12 +150,12 @@ func setup() *gin.Engine {
 			// accounts CRUD
 			accounts.GET("", methods.GetAccounts)
 			accounts.GET("/:account_id", methods.GetAccount)
-			accounts.POST("", methods.AddAccount)
+			accounts.POST("", middleware.BlockWhenManaged(), methods.AddAccount)
 			accounts.PUT("/:account_id", methods.UpdateAccount)
-			accounts.DELETE("/:account_id", methods.DeleteAccount)
+			accounts.DELETE("/:account_id", middleware.BlockWhenManaged(), methods.DeleteAccount)
 
 			// account password change
-			accounts.PUT("/password", methods.UpdatePassword)
+			accounts.PUT("/password", middleware.BlockWhenManaged(), methods.UpdatePassword)
 
 			// ssh keys read and write
 			accounts.GET("/ssh-keys", methods.GetSSHKeys)

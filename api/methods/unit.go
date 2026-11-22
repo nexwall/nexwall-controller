@@ -216,7 +216,8 @@ func AddUnit(c *gin.Context) {
 	}
 
 	// if the controller does not have a subscription, limit the number of units to 3
-	if !configuration.Config.ValidSubscription {
+	// (managed tenants are provisioned by a partner and are not capped)
+	if !configuration.Config.ValidSubscription && !configuration.Config.IdentityManaged {
 		units, err := storage.ListUnits()
 		if err != nil {
 			c.JSON(http.StatusBadRequest, structs.Map(response.StatusBadRequest{
